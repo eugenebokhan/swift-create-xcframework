@@ -18,14 +18,14 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "0.1.0"),
         .package(name: "SwiftPM", url: "https://github.com/apple/swift-package-manager.git", .revision("5abb16c6ea0657a23bca2660c49ed65465e7cc7a")),
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.1.3"),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.1.3")
     ],
 
     targets: [
         .target(name: "CreateXCFramework", dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SwiftPM-auto", package: "SwiftPM"),
-            .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+            .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
         ]),
         .testTarget(name: "CreateXCFrameworkTests", dependencies: [ "CreateXCFramework" ]),
     ],

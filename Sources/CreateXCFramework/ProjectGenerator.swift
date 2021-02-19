@@ -9,6 +9,7 @@ import Foundation
 import TSCBasic
 import TSCUtility
 import Xcodeproj
+import PackageModel
 
 struct ProjectGenerator {
 
@@ -42,7 +43,12 @@ struct ProjectGenerator {
 
         let path = AbsolutePath(self.package.distributionBuildXcconfig.path)
         try open(path) { stream in
-            if let absolutePath = self.package.overridesXcconfig?.path {
+            if let absolutePath = self.package.overridesXcconfigs.first(where: {
+                for target in self.package.manifest.targets {
+                    if $0.lastPathComponent.contains(target.name) { return true }
+                }
+                return false
+            } )?.path {
                 stream (
                     """
                     #include "\(AbsolutePath(absolutePath).relative(to: AbsolutePath(path.dirname)).pathString)"
@@ -63,18 +69,25 @@ struct ProjectGenerator {
     ///
     /// This is basically a copy of Xcodeproj.generate()
     ///
-    func generate () throws -> Xcode.Project {
+    func generate() throws -> Xcode.Project {
         let path = self.projectPath
         try makeDirectories(path)
 
         // Generate the contents of project.xcodeproj (inside the .xcodeproj).
-        let project = try pbxproj (
+        let project = try pbxproj(
             xcodeprojPath: path,
             graph: self.package.graph,
             extraDirs: [],
             extraFiles: [],
             options: XcodeprojOptions (
-                xcconfigOverrides: (self.package.overridesXcconfig?.path).flatMap { AbsolutePath($0) },
+                xcconfigOverrides: (self.package.overridesXcconfigs.first(where: {
+                    for target in self.package.manifest.targets {
+                        if $0.lastPathComponent.contains(target.name) {
+                            return true
+                        }
+                    }
+                    return false
+                } )?.path).flatMap { AbsolutePath($0) },
                 useLegacySchemeGenerator: true
             ),
             diagnostics: self.package.diagnostics
@@ -111,6 +124,21 @@ extension Xcode.Project {
 
         for target in self.targets where targets.contains(target.name) {
             target.buildSettings.xcconfigFileRef = ref
+        }
+    }
+
+    func set(xcconfigs: [RelativePath]) {
+        for xcconfig in xcconfigs {
+            guard let target = self.targets.first(where: {
+                NSString(string: xcconfig.basename).deletingPathExtension == $0.name
+            })
+            else { continue }
+
+            let xcconfigFileRefference = self.configGroup.addFileReference(
+                path: xcconfig.pathString,
+                name: xcconfig.basename
+            )
+            target.buildSettings.xcconfigFileRef = xcconfigFileRefference
         }
     }
 

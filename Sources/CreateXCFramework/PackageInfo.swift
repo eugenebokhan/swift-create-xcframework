@@ -33,19 +33,19 @@ struct PackageInfo {
             .absoluteURL
     }
 
-    var overridesXcconfig: Foundation.URL? {
-        guard let path = self.options.xcconfig else { return nil }
+    var overridesXcconfigs: [Foundation.URL] {
+        self.options.xcconfig.map { path in
+            // absolute path
+            if path.hasPrefix("/") {
+                return Foundation.URL(fileURLWithPath: path)
 
-        // absolute path
-        if path.hasPrefix("/") {
-            return Foundation.URL(fileURLWithPath: path)
+            // strip current directory if thats where we are
+            } else if path.hasPrefix("./") {
+                return self.rootDirectory.appendingPathComponent(String(path[path.index(path.startIndex, offsetBy: 2)...]))
+            }
 
-        // strip current directory if thats where we are
-        } else if path.hasPrefix("./") {
-            return self.rootDirectory.appendingPathComponent(String(path[path.index(path.startIndex, offsetBy: 2)...]))
+            return self.rootDirectory.appendingPathComponent(path)
         }
-
-        return self.rootDirectory.appendingPathComponent(path)
     }
 
     // TODO: Map diagnostics to swift-log
@@ -61,7 +61,7 @@ struct PackageInfo {
 
     // MARJ: - Initialisation
 
-    init (options: Command.Options) throws {
+    init(options: Command.Options) throws {
         self.options = options
         self.rootDirectory = Foundation.URL(fileURLWithPath: options.packagePath, isDirectory: true).absoluteURL
         self.buildDirectory = self.rootDirectory.appendingPathComponent(options.buildPath, isDirectory: true).absoluteURL
@@ -70,11 +70,12 @@ struct PackageInfo {
 
         self.toolchain = try UserToolchain(destination: try .hostDestination())
 
-        let resources = try UserManifestResources(swiftCompiler: self.toolchain.swiftCompiler, swiftCompilerFlags: self.toolchain.extraSwiftCFlags)
+        let resources = try UserManifestResources(swiftCompiler: self.toolchain.swiftCompiler,
+                                                  swiftCompilerFlags: self.toolchain.extraSwiftCFlags)
         let loader = ManifestLoader(manifestResources: resources)
         self.workspace = Workspace.create(forRootPackage: root, manifestLoader: loader)
 
-        self.package = try PackageBuilder.loadPackage (
+        self.package = try PackageBuilder.loadPackage(
             packagePath: root,
             swiftCompiler: self.toolchain.swiftCompiler,
             swiftCompilerFlags: self.toolchain.extraSwiftCFlags,
